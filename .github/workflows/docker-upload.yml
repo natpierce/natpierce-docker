@@ -1,4 +1,4 @@
-name: 所有标签的 Docker 镜像构建
+name: 所有标签的 Docker 镜像构建与推送
 
 on:
   workflow_dispatch:
