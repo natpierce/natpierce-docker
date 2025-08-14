@@ -1,0 +1,65 @@
+# 工作流名称
+name: 测试标签的 Docker 镜像构建
+
+on:
+  workflow_dispatch:
+    inputs:
+      custom_tag_prefix:
+        description: '请输入用于构建镜像的标签前缀'
+        required: true
+        type: string
+        default: 'test'
+
+jobs:
+  build-and-export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build and export all test images
+        run: |
+          CUSTOM_PREFIX=${{ github.event.inputs.custom_tag_prefix }}
+          BASE_NAME="xiyu505/natpierce"
+          BUILD_CONTEXT="./docker/build"
+
+          # amd64
+          echo "Building linux/amd64 image with tag: $CUSTOM_PREFIX-amd64"
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag $BASE_NAME:$CUSTOM_PREFIX-amd64 \
+            --output type=docker,dest=/tmp/natpierce-$CUSTOM_PREFIX-amd64.tar \
+            $BUILD_CONTEXT
+          
+          # arm64
+          echo "Building linux/arm64 image with tag: $CUSTOM_PREFIX-arm64"
+          docker buildx build \
+            --platform linux/arm64 \
+            --tag $BASE_NAME:$CUSTOM_PREFIX-arm64 \
+            --output type=docker,dest=/tmp/natpierce-$CUSTOM_PREFIX-arm64.tar \
+            $BUILD_CONTEXT
+
+          # arm/v7
+          echo "Building linux/arm/v7 image with tag: arm32"
+          docker buildx build \
+            --platform linux/arm/v7 \
+            --tag $BASE_NAME:$CUSTOM_PREFIX-arm32 \
+            --output type=docker,dest=/tmp/natpierce-$CUSTOM_PREFIX-arm32.tar \
+            $BUILD_CONTEXT
+
+      - name: Upload Docker image artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-test-images-tar
+          path: /tmp/*.tar
+          retention-days: 7

@@ -1,0 +1,14 @@
+services:
+  natpierce:
+    image: xiyu505/natpierce:latest
+    container_name: natpierce
+    restart: always
+    privileged: true
+    network_mode: host
+    environment:
+      webdkh: "33272"
+    volumes:
+      - data:/natpierce
+volumes:
+  data:
+  
