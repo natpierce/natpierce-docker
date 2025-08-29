@@ -70,23 +70,33 @@ iptables -V
 #更新
 
 # 网站的URL
-url="https://www.natpierce.cn/tempdir/info/version.html"
+url="https://natpierce.oss-cn-beijing.aliyuncs.com/update/version.txt"
 
 if [ "x${update}" = "xtrue" ]; then
-    LOG_INFO "开始获取官网最新版本号"
-    version=$(wget -qO- "$url")
+    LOG_INFO "开始获取官网最新版本号..."
+    # 使用 wget -qO- 获取版本号，并捕获返回值
+    version=$(wget -qO- "$url" 2>/dev/null)
+    
+    # 检查是否成功获取到版本号
     if [ -n "${version}" ]; then
-        LOG_INFO "获取当前版本号: ${version}"
+        LOG_INFO "成功获取到最新版本号: ${version}"
     else
-        LOG_ERROR "无法找到版本号"
-        exit 1
+        LOG_WARN "无法从官网获取版本号，检查本地文件..."
+        # 尝试使用本地版本
+        if [ -f "$version_file" ] && [ -f "$app_file" ]; then
+            version=$(cat "$version_file")
+            LOG_INFO "本地版本文件存在，将使用本地版本号: ${version}"
+        else
+            LOG_ERROR "本地版本文件不存在，无法继续。请检查网络连接。"
+            exit 1
+        fi
     fi
 elif [ "x${update}" = "xfalse" ]; then
     if [ "x${customversion}" = "xnull" ]; then
         LOG_ERROR "错误: customversion 不能为 null"
         exit 1
     else
-        LOG_WARN "使用自定义版本号"
+        LOG_WARN "使用自定义版本号: ${customversion}"
         version="${customversion}"
     fi
 else
@@ -128,7 +138,7 @@ if [ -f "$version_file" ] && [ "$(cat "$version_file")" = "$version" ] && [ -f "
     version_txt=$(cat "$version_file")
     LOG_INFO "本地版本号为$version_txt"
 else
-    wget -O natpierce.tar.gz $URL
+    wget -q -O natpierce.tar.gz $URL
     if [ -s natpierce.tar.gz ] && [ $(stat -c%s natpierce.tar.gz) -gt 1024 ]; then
       LOG_INFO "下载 natpierce 包成功。"
     
