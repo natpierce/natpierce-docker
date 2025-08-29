@@ -9,6 +9,6 @@ ENV webdkh=33272
 ENV update=true
 ENV customversion=null
 WORKDIR /natpierce
-LABEL org.opencontainers.image.authors="Lyiyeyulongwu"
-LABEL org.opencontainers.image.source="https://github.com/XingHeYuZhuan/natpierce-docker"
+LABEL org.opencontainers.image.authors="XingHeYuZhuan"
+LABEL org.opencontainers.image.source="https://github.com/natpierce/natpierce-docker"
 CMD [ "/version/zgx_natpierce.sh" ]

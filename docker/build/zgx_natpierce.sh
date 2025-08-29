@@ -197,7 +197,7 @@ cat << EOF
     - 主机防火墙是否放行了相应端口。
 
 5.  [项目支持] 如果本项目对您有帮助，欢迎在 GitHub 上给我们一个 star！
-    项目地址: https://github.com/XingHeYuZhuan/natpierce-docker
+    项目地址: https://github.com/natpierce/natpierce-docker
 
 =================================================
 EOF
