@@ -67,84 +67,45 @@ fi
 
 iptables -V
 
-#更新
-
-# 网站的URL
-url="https://natpierce.oss-cn-beijing.aliyuncs.com/update/version.txt"
-
-if [ "x${update}" = "xtrue" ]; then
-    LOG_INFO "开始获取官网最新版本号..."
-    # 使用 wget -qO- 获取版本号，并捕获返回值
-    version=$(wget -qO- "$url" 2>/dev/null)
-    
-    # 检查是否成功获取到版本号
-    if [ -n "${version}" ]; then
-        LOG_INFO "成功获取到最新版本号: ${version}"
-    else
-        LOG_WARN "无法从官网获取版本号，检查本地文件..."
-        # 尝试使用本地版本
-        if [ -f "$version_file" ] && [ -f "$app_file" ]; then
-            version=$(cat "$version_file")
-            LOG_INFO "本地版本文件存在，将使用本地版本号: ${version}"
-        else
-            LOG_ERROR "本地版本文件不存在，无法继续。请检查网络连接。"
-            exit 1
-        fi
-    fi
-elif [ "x${update}" = "xfalse" ]; then
-    if [ "x${customversion}" = "xnull" ]; then
-        LOG_ERROR "错误: customversion 不能为 null"
-        exit 1
-    else
-        LOG_WARN "使用自定义版本号: ${customversion}"
-        version="${customversion}"
-    fi
+if [ -f "/version/update_parser.sh" ]; then
+    . /version/update_parser.sh
 else
-    LOG_ERROR "错误: update 的值必须是 'true' 或 'false'"
+    LOG_ERROR "未找到 update_parser.sh 脚本！"
     exit 1
 fi
 
-LOG_INFO "使用版本号: ${version}"
-
-# 定义基础URL
-base_url="https://natpierce.oss-cn-beijing.aliyuncs.com/linux"
-
-# 获取系统架构
-arch=$(uname -m)
-
-# 根据架构获取文件名
-case "$arch" in
-  x86_64)
-    file="natpierce-amd64-v${version}.tar.gz"
-    ;;
-  aarch64)
-    file="natpierce-arm64-v${version}.tar.gz"
-    ;;
-  armv7*)
-    file="natpierce-arm32-v${version}.tar.gz"
-    ;;
-  *)
-    LOG_ERROR "不支持的架构: $arch"
+if [ "x${update}" = "xtrue" ] && [ -z "$TARGET_URL" ]; then
+    LOG_ERROR "获取在线更新配置失败或不支持当前系统架构，停止运行。"
     exit 1
-    ;;
-esac
+fi
 
-# 构建完整的下载URL
-URL="${base_url}/${file}"
+if [ "x${update}" = "xfalse" ] && [ -z "$TARGET_VERSION" ]; then
+    LOG_ERROR "未开启更新且未配置合法的 customversion，停止运行。"
+    exit 1
+fi
+
+version="$TARGET_VERSION"
+URL="$TARGET_URL"
 
 # 检查版本文件是否存在且内容是否与当前版本一致
-if [ -f "$version_file" ] && [ "$(cat "$version_file")" = "$version" ] && [ -f "$app_file" ]; then
+if [ -f "$version_file" ] && [ "$(cat "$version_file" | sed 's/v//g')" = "$version" ] && [ -f "$app_file" ]; then
     LOG_INFO "版本文件存在且内容与当前版本一致。"
     version_txt=$(cat "$version_file")
-    LOG_INFO "本地版本号为$version_txt"
+    LOG_INFO "本地版本号为: $version_txt"
 else
-    wget -q -O natpierce.tar.gz $URL
-    if [ -s natpierce.tar.gz ] && [ $(stat -c%s natpierce.tar.gz) -gt 1024 ]; then
+    if [ -z "$URL" ]; then
+        LOG_ERROR "本地无可用二进制程序，且无法从网络获取下载链接 (update=false)。"
+        exit 1
+    fi
+
+    LOG_INFO "开始下载 natpierce 固件包..."
+    wget -q -O natpierce.tar.gz "$URL"
+    if [ -s natpierce.tar.gz ] && [ $(stat -c%s natpierce.tar.gz 2>/dev/null || echo 2000) -gt 1024 ]; then
       LOG_INFO "下载 natpierce 包成功。"
     
       # 解压 natpierce 包
-      if tar -xzvf natpierce.tar.gz natpierce; then
-          rm natpierce.tar.gz
+      if tar -xzvf natpierce.tar.gz natpierce >/dev/null 2>&1 || tar -xzvf natpierce.tar.gz >/dev/null 2>&1; then
+          rm -f natpierce.tar.gz
           LOG_INFO "解压 natpierce 包成功。"
       else
           LOG_ERROR "解压 natpierce 包失败。"
@@ -154,9 +115,14 @@ else
       LOG_ERROR "下载natpierce包失败，请检查网络连接！！！"
       exit 1
     fi
+
     # 移动 natpierce 二进制文件到工作目录
     mkdir -p "/natpierce/"
-    if mv natpierce /natpierce/natpierce; then
+    if [ -f "natpierce" ]; then
+        mv natpierce /natpierce/natpierce
+    fi
+
+    if [ -f "/natpierce/natpierce" ]; then
         LOG_INFO "natpierce 二进制文件已成功移动到工作目录。"
         chmod +x /natpierce/natpierce
         echo "$version" > "/natpierce/version.txt"
@@ -166,14 +132,14 @@ else
     fi
 fi
 
-#检测tun的存在
+# 检测tun的存在
 if [ -c /dev/net/tun ] && [ -r /dev/net/tun ] && [ -w /dev/net/tun ]; then
   LOG_INFO "/dev/net/tun 设备存在且可读写，支持组网模式"
 else
   LOG_WARN "/dev/net/tun 设备不可用，仅支持映射模式，组网模式不可用"
 fi
 
-#检测是否host模式
+# 检测是否host模式
 if ip link show docker0 >/dev/null 2>&1; then
     LOG_INFO "当前是host"
 else
@@ -211,6 +177,5 @@ cat << EOF
 
 =================================================
 EOF
-
 
 /natpierce/natpierce -p $webdkh
